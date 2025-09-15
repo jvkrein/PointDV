@@ -6,7 +6,7 @@ Aplicativo agregador de eventos e promoções do comércio local, desenvolvido p
 
 ## 📝 Descrição do Projeto
 
-O "PointDV" busca resolver o problema da descentralização na divulgação de eventos e promoções em cidades de pequeno e médio porte. A plataforma conecta consumidores a comerciantes locais, permitindo que os negócios divulguem suas atividades de forma simples e que os usuários descubram tudo que está acontecendo ao seu redor.
+O "PointDV" busca resolver o problema da descentralização na divulgação de eventos e promoções em Dois Vizinhos - PR. A plataforma conecta consumidores a comerciantes locais, permitindo que os negócios divulguem suas atividades de forma simples e que os usuários descubram tudo que está acontecendo ao seu redor.
 
 ## ✨ Funcionalidades Principais
 
