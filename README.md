@@ -1,5 +1,3 @@
-# PointDV---DM15SW
-
 # 📱 Projeto PointDV
 
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
