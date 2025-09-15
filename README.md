@@ -2,7 +2,7 @@
 
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
 
-Aplicativo agregador de eventos e promoções do comércio local, desenvolvido para a disciplina de Desenvolvimento de App com ReactNative.
+Aplicativo agregador de eventos e promoções do comércio local, desenvolvido para a disciplina de Programação para dispositivos móveis.
 
 ## 📝 Descrição do Projeto
 
