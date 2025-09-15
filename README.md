@@ -4,6 +4,14 @@
 
 Aplicativo agregador de eventos e promoções do comércio local, desenvolvido para a disciplina de Programação para dispositivos móveis.
 
+
+## 🎨 Protótipo
+
+O protótipo navegável da aplicação foi desenvolvido no Figma e pode ser acessado através do link abaixo:
+
+[🔗 Acessar Protótipo no Figma](https://www.figma.com/make/iqZZwJuh7srDqP3z6j66xL/PointDV?node-id=0-1&t=V8RbLAbe2NhjiRld-1)
+
+
 ## 📝 Descrição do Projeto
 
 O "PointDV" busca resolver o problema da descentralização na divulgação de eventos e promoções em Dois Vizinhos - PR. A plataforma conecta consumidores a comerciantes locais, permitindo que os negócios divulguem suas atividades de forma simples e que os usuários descubram tudo que está acontecendo ao seu redor.
