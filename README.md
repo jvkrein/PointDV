@@ -20,7 +20,7 @@ O "PointDV" busca resolver o problema da descentralização na divulgação de e
 
 O protótipo navegável da aplicação foi desenvolvido no Figma e pode ser acessado através do link abaixo. Ele demonstra o fluxo de navegação e o design das principais telas.
 
-[🔗 **Acessar Protótipo no Figma**](https://www.figma.com/proto/iqZZwJuh7srDqP3z6j66xL/PointDV?node-id=0-1&t=V8RbLAbe2NhjiRld-1)
+[🔗 **Acessar Protótipo no Figma**](https://www.figma.com/make/iqZZwJuh7srDqP3z6j66xL/PointDV?node-id=0-1&p=f&t=5rXndWu7wGhnpiUR-0&fullscreen=1)
 
 ## 📖 Histórias de Usuário
 
