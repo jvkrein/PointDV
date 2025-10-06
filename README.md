@@ -32,7 +32,7 @@ O protótipo navegável da aplicação foi desenvolvido no Figma e pode ser aces
 
 | Categoria | Tecnologia |
 | :--- | :--- |
-| **Frontend (Mobile)** | `React Native` |
+| **Frontend (Mobile)** | `JavaScript, React Native` |
 | **Backend** | `(A definir)` - Node.js com Express |
 | **Banco de Dados** | `PostgreSQL` |
 | **Prototipagem** | `Figma` |
