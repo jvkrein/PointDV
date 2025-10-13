@@ -4,7 +4,7 @@
 
 Aplicativo agregador de eventos e promoções do comércio local em Dois Vizinhos - PR, desenvolvido para a disciplina de Programação para Dispositivos Móveis.
 
-##  Como Iniciar o programa
+## ▶️ Como Iniciar o programa
 
 Usar esse comando no CMD no local do projeto:
 
