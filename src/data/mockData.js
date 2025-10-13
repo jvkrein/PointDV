@@ -1,8 +1,0 @@
-// src/data/mockData.js
-export const events = [
-  { id: 1, title: 'Happy Hour Especial', location: 'Bar do João', time: '17:00', date: '07 OUT', category: 'Comida', image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500', isHighlight: true, description: 'Chopp por R$ 5 das 17h às 19h. Ambiente descontraído com música ao vivo.' },
-  { id: 2, title: 'Show de Rock Nacional', location: 'Casa de Shows Aurora', time: '20:00', date: '11 OUT', category: 'Música', image: 'https://images.unsplash.com/photo-1549402583-f6d39e5cec64?w=500', isHighlight: true, description: 'Banda local se apresenta tocando sucessos do rock brasileiro. Entrada gratuita.' },
-  { id: 3, title: 'Festa Anos 80', location: 'Clube Noturno', time: '22:00', date: '18 OUT', category: 'Diversão', image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=500', isHighlight: true, description: 'DJ tocando os maiores sucessos dos anos 80. Open bar até meia-noite.' },
-  { id: 4, title: 'Liquidação de Inverno', location: 'Moda & Estilo', time: '09:00', date: '09 OUT', category: 'Compras', image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=500', isHighlight: true, description: 'Até 50% de desconto em toda linha de roupas de inverno. Últimas peças.' },
-  { id: 5, title: 'Jantar Romântico', location: 'Restaurante La Bella', time: '19:30', date: '07 OUT', category: 'Comida', image: 'https://images.unsplash.com/photo-1567697464092-7975815a1332?w=500', isHighlight: false, description: 'Menu especial para casais com entrada, prato principal e sobremesa. Reservas pelo telefone.' },
-];
