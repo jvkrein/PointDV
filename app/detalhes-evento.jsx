@@ -1,9 +1,15 @@
-// app/detalhes-evento.jsx (VERSÃO REFEITA E SIMPLIFICADA)
+// app/detalhes-evento.jsx
+
+/**
+ * Tela que exibe os detalhes completos de um evento específico.
+ * As informações do evento são recebidas dinamicamente da tela anterior via parâmetros de rota.
+ * A tela permite ao usuário favoritar e confirmar participação no evento.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useContext, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -18,6 +24,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventsContext } from './contexts/EventsContext';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -31,19 +38,27 @@ const COLORS = {
 };
 
 const DetalhesEventoScreen = () => {
+    // Hook do Expo Router para ler os parâmetros passados na navegação.
     const params = useLocalSearchParams();
+    // Decodifica a string JSON de volta para um objeto JavaScript para ser usado na tela.
     const event = JSON.parse(params.eventData);
 
-    // --- LÓGICA SIMPLIFICADA: Apenas um estado para controlar o modal ---
+    // Estado para controlar a visibilidade do modal "Quero Participar".
     const [modalVisible, setModalVisible] = useState(false);
 
+    // Acessa o estado global e as funções para manipular os dados da aplicação.
     const { setConfirmedEventsCount, favoritedEvents, toggleFavorite } = useContext(EventsContext);
+    
+    // Verifica se o ID do evento atual está presente no array de favoritos do estado global.
     const isFavorited = favoritedEvents.includes(event.id);
 
-    // Função para confirmar e fechar o modal
+    /**
+     * Função chamada ao confirmar a participação em um evento.
+     * Ela fecha o modal e atualiza o estado global de eventos confirmados.
+     */
     const handleConfirmar = () => {
         setModalVisible(false);
-        setConfirmedEventsCount(1);
+        setConfirmedEventsCount(1); // Para o protótipo, define o contador como 1.
     }
 
   return (
@@ -51,6 +66,7 @@ const DetalhesEventoScreen = () => {
       <StatusBar style="dark" />
 
       <ScrollView>
+        {/* Imagem de cabeçalho do evento com botões de voltar e favoritar sobrepostos. */}
         <ImageBackground source={{ uri: event.image }} style={styles.headerImage}>
           <View style={styles.headerIcons}>
             <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -62,6 +78,7 @@ const DetalhesEventoScreen = () => {
           </View>
         </ImageBackground>
         
+        {/* Conteúdo principal com todas as informações detalhadas do evento. */}
         <View style={styles.contentContainer}>
           <Text style={styles.categoryTag}>{event.category}</Text>
           <Text style={styles.title}>{event.title}</Text>
@@ -86,7 +103,7 @@ const DetalhesEventoScreen = () => {
         </View>
       </ScrollView>
 
-      {/* --- RODAPÉ FIXO --- */}
+      {/* Rodapé fixo com os botões de ação principais. */}
       <View style={styles.footer}>
         <TouchableOpacity onPress={() => toggleFavorite(event.id)} style={styles.favoriteButton}>
           <MaterialCommunityIcons name={isFavorited ? "heart" : "heart-outline"} size={28} color={isFavorited ? COLORS.red : COLORS.dark} />
@@ -96,15 +113,17 @@ const DetalhesEventoScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* --- MODAL ÚNICO, CORRESPONDENDO À SEGUNDA IMAGEM --- */}
+      {/* Modal interativo que funciona como um "bottom sheet". */}
       <Modal 
         visible={modalVisible} 
         transparent={true} 
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setModalVisible(false)} // Permite fechar o modal com o botão "voltar" do Android.
       >
+          {/* Componente que detecta o clique na área escura (fora do conteúdo) para fechar o modal. */}
           <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
               <View style={styles.modalContainer}>
+                  {/* Este componente impede que o clique DENTRO do modal o feche acidentalmente. */}
                   <TouchableWithoutFeedback>
                       <View style={styles.modalContent}>
                           <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
@@ -146,6 +165,7 @@ const DetalhesEventoScreen = () => {
   );
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   headerImage: { height: 250, justifyContent: 'space-between', paddingTop: 50, paddingHorizontal: 15, flexDirection: 'row' },

@@ -1,9 +1,15 @@
-// app/login.jsx (VERSÃO CORRIGIDA, AMBOS OS LOGINS LEVAM PARA AS ABAS)
+// app/login.jsx
+
+/**
+ * Tela inicial da aplicação, responsável pelo login do usuário.
+ * Apresenta um formulário de login e opções de acesso rápido para 'Consumidor' e 'Lojista'.
+ * Esta tela utiliza um layout imersivo, com o cabeçalho se estendendo por baixo da barra de status.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useContext } from 'react'; // Adicionado React para clareza
+import React, { useContext } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -15,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EventsContext } from './contexts/EventsContext';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -25,25 +32,39 @@ const COLORS = {
 };
 
 const SignInScreen = () => {
+  // Hook para obter as dimensões das áreas seguras do dispositivo (topo e base).
   const insets = useSafeAreaInsets();
+  
+  // Acessa o contexto global para obter a função que define o tipo de usuário.
   const { setUserType } = useContext(EventsContext);
 
-  // --- FUNÇÃO DE LOGIN CORRIGIDA ---
+  /**
+   * Função que lida com o processo de login.
+   * @param {'consumidor' | 'lojista'} type - O tipo de usuário que está fazendo o login.
+   */
   const handleLogin = (type) => {
-    setUserType(type); // Define o tipo de usuário globalmente
-    // MUDANÇA AQUI: Agora, tanto 'consumidor' quanto 'lojista' vão para a mesma tela de abas.
+    // Define o tipo de usuário no estado global para que o resto do app saiba quem está logado.
+    setUserType(type); 
+    // Navega para a tela principal de abas, substituindo a tela de login na pilha de navegação.
     router.replace('/(tabs)'); 
   };
 
   return (
+    // View principal que ocupa toda a tela.
     <View style={styles.safeArea}>
+      {/* Configura a barra de status para ter ícones claros e ser translúcida. */}
       <StatusBar style="light" translucent />
+      
       <ScrollView
+        // O `contentContainerStyle` aplica espaçamento dinâmico na base da lista,
+        // garantindo que o conteúdo não fique escondido atrás da barra de navegação do celular.
         contentContainerStyle={[
           styles.container,
           { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 },
         ]}
       >
+        {/* Cabeçalho azul com layout imersivo. */}
+        {/* O `paddingTop` é calculado dinamicamente para compensar a altura da barra de status. */}
         <View style={[styles.header, { paddingTop: insets.top + 40 }]}>
           <MaterialCommunityIcons name="map-marker-outline" size={30} color={COLORS.white} />
           <Text style={styles.logoText}>PointDV</Text>
@@ -73,12 +94,15 @@ const SignInScreen = () => {
             </View>
           </View>
         </View>
+
+        {/* Formulário de login branco. */}
         <View style={styles.formContainer}>
           <MaterialCommunityIcons name="star-circle-outline" size={40} color={COLORS.primary} />
           <Text style={styles.welcomeTitle}>Bem-vindo de volta!</Text>
           <Text style={styles.welcomeSubtitle}>Entre para descobrir eventos incríveis</Text>
+          
           <Text style={styles.quickAccessText}>Acesso rápido para teste:</Text>
-
+          {/* Botões de acesso rápido que definem o tipo de usuário e navegam para a home. */}
           <View style={styles.quickAccessButtons}>
             <TouchableOpacity style={styles.quickAccessButton} onPress={() => handleLogin('consumidor')}>
               <MaterialCommunityIcons name="account-outline" size={20} color={COLORS.primary} />
@@ -101,10 +125,12 @@ const SignInScreen = () => {
             <TouchableOpacity><Text style={styles.forgotPasswordText}>Esqueceu?</Text></TouchableOpacity>
           </View>
 
+          {/* Botão principal de "Entrar", que por padrão loga como consumidor. */}
           <TouchableOpacity style={styles.signInButton} onPress={() => handleLogin('consumidor')}>
             <Text style={styles.signInButtonText}>Entrar</Text>
           </TouchableOpacity>
 
+          {/* Link para a tela de cadastro. */}
           <Link href="/signup" asChild>
             <TouchableOpacity>
               <Text style={styles.footerText}>
@@ -119,6 +145,7 @@ const SignInScreen = () => {
   );
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.lightGray },
   container: { flexGrow: 1 },

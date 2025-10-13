@@ -1,8 +1,15 @@
-// app/(tabs)/index.jsx (VERSÃO ATUALIZADA COM ENVIO DE DADOS)
+// app/(tabs)/index.jsx
+
+/**
+ * Tela principal da aplicação (Feed de Eventos).
+ * Exibe as últimas promoções e eventos em duas seções: "Destaques" e "Todos os eventos".
+ * Inclui funcionalidades de busca, filtros por categoria e navegação para a tela de detalhes.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React from 'react';
 import {
   ImageBackground,
   ScrollView,
@@ -14,6 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -22,7 +30,8 @@ const COLORS = {
   dark: '#333333',
 };
 
-// <-- MUDANÇA 1: Dados de exemplo enriquecidos com todos os detalhes necessários
+// Objeto de dados estáticos para simular uma chamada de API e popular a tela.
+// Cada evento contém todas as informações necessárias para o feed e para a tela de detalhes.
 const DUMMY_EVENTS = {
   destaques: [
     { 
@@ -62,17 +71,21 @@ const DUMMY_EVENTS = {
       }
     },
   ],
-  todos: [
-    // ... você pode enriquecer os outros eventos da mesma forma se quiser ...
-  ],
+  todos: [], // Pode ser populado com mais eventos.
 };
 
-// <-- MUDANÇA 2: O EventCard agora envia os dados do evento clicado via parâmetros
+/**
+ * Componente reutilizável para exibir um card de evento.
+ * @param {object} event - O objeto contendo os dados do evento.
+ * @param {boolean} isHighlight - Se true, renderiza um card maior para a seção de destaques.
+ */
 const EventCard = ({ event, isHighlight = false }) => (
+  // O componente Link do Expo Router envolve o card para torná-lo navegável.
   <Link 
     href={{
       pathname: "/detalhes-evento",
-      // Enviamos o objeto do evento como uma string. A outra tela vai decodificar.
+      // Passa o objeto completo do evento como um parâmetro de rota.
+      // O objeto é convertido para string JSON para ser enviado e será decodificado na tela de destino.
       params: { eventData: JSON.stringify(event) }
     }} 
     asChild
@@ -100,15 +113,20 @@ const FeedScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Cabeçalho com localização e logo. */}
         <View style={styles.header}>
           <View><Text style={styles.headerLocationText}>Entregar em</Text><Text style={styles.headerLocation}>Casa - Centro</Text></View>
           <Text style={styles.headerLogo}>PointDV</Text>
         </View>
+        
+        {/* Barra de busca e botão de filtro. */}
         <View style={styles.searchContainer}>
           <MaterialCommunityIcons name="magnify" size={22} color={COLORS.gray} />
           <TextInput placeholder="Buscar eventos..." style={styles.searchInput} />
           <MaterialCommunityIcons name="filter-variant" size={22} color={COLORS.dark} />
         </View>
+
+        {/* Lista horizontal de categorias. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
           <TouchableOpacity style={[styles.categoryButton, styles.categoryButtonActive]}>
             <MaterialCommunityIcons name="compass" size={24} color={COLORS.white} />
@@ -119,12 +137,16 @@ const FeedScreen = () => {
             <Text style={styles.categoryText}>Comida</Text>
           </TouchableOpacity>
         </ScrollView>
+
+        {/* Seção de Destaques com rolagem horizontal. */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Destaques perto de você</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {DUMMY_EVENTS.destaques.map(event => <EventCard key={event.id} event={event} isHighlight />)}
           </ScrollView>
         </View>
+
+        {/* Seção com todos os outros eventos. */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Todos os eventos</Text>
           {DUMMY_EVENTS.todos.map(event => <EventCard key={event.id} event={event} />)}
@@ -134,6 +156,7 @@ const FeedScreen = () => {
   );
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { paddingHorizontal: 15, paddingTop: 15, paddingBottom: 20 },

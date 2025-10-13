@@ -1,40 +1,55 @@
-// app/contexts/EventsContext.jsx (VERSÃO FINAL COM USERTYPE)
+// app/contexts/EventsContext.jsx
 
-import { createContext, useState } from 'react';
+/**
+ * Este arquivo gerencia o estado global da aplicação usando a Context API do React.
+ * Ele compartilha informações como o tipo de usuário logado, eventos confirmados e favoritos
+ * entre todas as telas, evitando a necessidade de passar props por múltiplos níveis.
+ */
 
-// 1. Criamos o contexto
+import React, { createContext, useState } from 'react';
+
+// Cria o objeto de Contexto que será usado pelos componentes para acessar o estado.
 export const EventsContext = createContext();
 
-// 2. Criamos o "Provedor" que vai gerenciar e compartilhar a informação
+/**
+ * Componente "Provedor" que envolve a aplicação.
+ * É aqui que os estados são criados e as funções que os modificam são definidas.
+ */
 export const EventsProvider = ({ children }) => {
-  // Estado para o número de eventos confirmados
+  // Estado para rastrear o número de eventos que o usuário confirmou presença.
   const [confirmedEventsCount, setConfirmedEventsCount] = useState(0);
 
-  // Estado para guardar os IDs dos eventos favoritados
+  // Estado que armazena um array com os IDs dos eventos favoritados pelo usuário.
   const [favoritedEvents, setFavoritedEvents] = useState([]);
 
-  // <-- MUDANÇA 1: Novo estado para guardar o tipo de usuário ('consumidor' ou 'lojista')
-  const [userType, setUserType] = useState('consumidor'); // O padrão é consumidor
+  // Estado para diferenciar a experiência do usuário entre 'consumidor' e 'lojista'.
+  const [userType, setUserType] = useState('consumidor'); // O padrão é 'consumidor'.
 
-  // Função para adicionar ou remover um evento dos favoritos
+  /**
+   * Adiciona ou remove um ID de evento do array de favoritos.
+   * @param {number} eventId - O ID do evento a ser favoritado/desfavoritado.
+   */
   const toggleFavorite = (eventId) => {
     setFavoritedEvents(prevFavorites => {
+      // Se o ID já existe no array, remove (desfavorita).
       if (prevFavorites.includes(eventId)) {
         return prevFavorites.filter(id => id !== eventId);
-      } else {
+      } 
+      // Se não existe, adiciona (favorita).
+      else {
         return [...prevFavorites, eventId];
       }
     });
   };
 
-  // O provedor agora compartilha TODAS as informações
+  // Objeto que agrupa todos os estados e funções a serem compartilhados.
   const value = {
     confirmedEventsCount,
     setConfirmedEventsCount,
     favoritedEvents,
     toggleFavorite,
-    userType,          // <-- MUDANÇA 2: Compartilhando o novo estado
-    setUserType,       // <-- MUDANÇA 3: Compartilhando a função para alterá-lo
+    userType,
+    setUserType,
   };
 
   return (

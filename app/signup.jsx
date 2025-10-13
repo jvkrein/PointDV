@@ -1,9 +1,15 @@
 // app/signup.jsx
 
+/**
+ * Tela de Cadastro de Novos Usuários.
+ * Apresenta um formulário dinâmico que se adapta com base no tipo de conta escolhido:
+ * 'Consumidor' ou 'Lojista'.
+ */
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -14,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -25,12 +32,14 @@ const COLORS = {
 };
 
 const SignUpScreen = () => {
+  // Estado para controlar qual tipo de formulário é exibido ('consumidor' ou 'lojista').
   const [userType, setUserType] = useState('consumidor');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Cabeçalho da página com título e botão de voltar. */}
         <View style={styles.header}>
           <Link href="/login" asChild>
             <TouchableOpacity>
@@ -43,6 +52,7 @@ const SignUpScreen = () => {
           </View>
         </View>
 
+        {/* Seção para o usuário escolher entre os tipos de conta. */}
         <Text style={styles.sectionTitle}>Escolha o tipo de conta</Text>
         <Text style={styles.sectionSubtitle}>Selecione como você vai usar o PointDV</Text>
         <TouchableOpacity style={[styles.typeSelector, userType === 'consumidor' && styles.typeSelectorActive]} onPress={() => setUserType('consumidor')}>
@@ -62,12 +72,14 @@ const SignUpScreen = () => {
           {userType === 'lojista' && <MaterialCommunityIcons name="check-circle" size={24} color={COLORS.primary} />}
         </TouchableOpacity>
 
+        {/* Formulário com campos comuns a ambos os tipos de usuário. */}
         <Text style={styles.sectionTitle}>Informações Pessoais</Text>
         <View style={styles.inputContainer}><MaterialCommunityIcons name="account-outline" size={20} color={COLORS.gray} style={styles.inputIcon} /><TextInput placeholder="Seu nome completo" style={styles.input} placeholderTextColor={COLORS.gray} /></View>
         <View style={styles.inputContainer}><MaterialCommunityIcons name="email-outline" size={20} color={COLORS.gray} style={styles.inputIcon} /><TextInput placeholder="seu@email.com" style={styles.input} keyboardType="email-address" placeholderTextColor={COLORS.gray} /></View>
         <View style={styles.inputContainer}><MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.gray} style={styles.inputIcon} /><TextInput placeholder="Mínimo 6 caracteres" style={styles.input} secureTextEntry placeholderTextColor={COLORS.gray} /></View>
         <View style={styles.inputContainer}><MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.gray} style={styles.inputIcon} /><TextInput placeholder="Digite novamente" style={styles.input} secureTextEntry placeholderTextColor={COLORS.gray} /></View>
 
+        {/* Renderização Condicional: Estes campos só aparecem se o userType for 'lojista'. */}
         {userType === 'lojista' && (
           <>
             <Text style={styles.sectionTitle}>Informações do Estabelecimento</Text>
@@ -77,6 +89,7 @@ const SignUpScreen = () => {
           </>
         )}
 
+        {/* Botão de ação principal e links do rodapé. */}
         <TouchableOpacity style={styles.actionButton}><Text style={styles.actionButtonText}>Criar Minha Conta</Text></TouchableOpacity>
         <Text style={styles.footerText}>Ao criar uma conta, você concorda com nossos <Text style={styles.linkText}>Termos de Uso</Text> e <Text style={styles.linkText}>Política de Privacidade</Text></Text>
         <Link href="/login" asChild>
@@ -89,6 +102,7 @@ const SignUpScreen = () => {
   );
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 20, backgroundColor: COLORS.white },

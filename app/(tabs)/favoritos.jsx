@@ -1,9 +1,16 @@
-// app/(tabs)/favoritos.jsx (VERSÃO FINAL E COMPLETA)
+// app/(tabs)/favoritos.jsx
+
+/**
+ * Tela que exibe a lista de eventos favoritados pelo usuário.
+ * Ela lê o estado global de favoritos e renderiza uma de duas visualizações:
+ * 1. Um estado de "lista vazia" se nenhum evento foi favoritado.
+ * 2. Uma lista com os cards dos eventos salvos.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useContext } from 'react';
+import React, { useContext } from 'react';
 import {
   Image,
   ScrollView,
@@ -15,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventsContext } from '../contexts/EventsContext';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -23,7 +31,7 @@ const COLORS = {
   lightGray: '#F0F2F5',
 };
 
-// Componente para quando a lista está vazia
+// Componente para a tela vazia, exibido quando não há favoritos.
 const EmptyFavorites = () => (
   <View style={styles.emptyContainer}>
     <MaterialCommunityIcons name="heart-outline" size={80} color={COLORS.gray} />
@@ -40,7 +48,9 @@ const EmptyFavorites = () => (
   </View>
 );
 
-// Componente para o card de evento na lista de favoritos
+// Componente para o card de um evento favoritado.
+// OBS: Atualmente, este card não é dinâmico, pois a tela de detalhes não passa o ID do evento para ele.
+// Para a entrega, ele simula a aparência de um evento favoritado.
 const FavoriteEventCard = () => (
     <Link href="/detalhes-evento" asChild>
         <TouchableOpacity style={styles.card}>
@@ -51,7 +61,7 @@ const FavoriteEventCard = () => (
             <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Jantar Romântico</Text>
                 <Text style={styles.cardLocation}>Restaurante La Bella</Text>
-                <Text style={styles.cardDescription}>Menu especial para casais com entrada, prato principal e sobremesa.</Text>
+                <Text style={styles.cardDescription} numberOfLines={2}>Menu especial para casais com entrada, prato principal e sobremesa.</Text>
                 <View style={styles.cardFooter}>
                     <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={COLORS.gray} />
                     <Text style={styles.cardDate}>13 out.</Text>
@@ -64,7 +74,7 @@ const FavoriteEventCard = () => (
 );
 
 const FavoritosScreen = () => {
-  // Lê a lista de IDs de eventos favoritados do nosso "cérebro"
+  // Lê a lista de IDs de eventos favoritados do "cérebro" da aplicação.
   const { favoritedEvents } = useContext(EventsContext);
   const favoritesCount = favoritedEvents.length;
 
@@ -76,12 +86,13 @@ const FavoritosScreen = () => {
         <Text style={styles.headerSubtitle}>{favoritesCount} {favoritesCount === 1 ? 'evento salvo' : 'eventos salvos'}</Text>
       </View>
 
-      {/* Se não houver favoritos, mostra o componente EmptyFavorites. Se houver, mostra a lista. */}
+      {/* Renderização Condicional: Se a contagem de favoritos for zero, mostra a tela vazia.
+          Caso contrário, renderiza a lista de eventos. */}
       {favoritesCount === 0 ? (
         <EmptyFavorites />
       ) : (
         <ScrollView style={styles.listContainer}>
-          {/* Para este protótipo, mostramos o card fixo se houver algum favorito */}
+          {/* Para este protótipo, renderiza o card fixo se a lista não estiver vazia. */}
           <FavoriteEventCard />
         </ScrollView>
       )}
@@ -89,6 +100,7 @@ const FavoritosScreen = () => {
   );
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   header: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },

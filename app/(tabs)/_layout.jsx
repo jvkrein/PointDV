@@ -1,12 +1,19 @@
-// app/(tabs)/_layout.jsx (ESTA É A CORREÇÃO PRINCIPAL)
+// app/(tabs)/_layout.jsx
+
+/**
+ * Este arquivo define o layout da navegação principal por abas (Tabs) da aplicação.
+ * É responsável por configurar cada aba (Início, Meus Eventos, etc.), seus ícones,
+ * títulos e a aparência geral da barra de navegação inferior.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { useContext } from 'react';
+import React, { useContext } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EventsContext } from '../contexts/EventsContext';
 
+// Paleta de cores específica para este componente.
 const COLORS = {
   primary: '#4A90E2',
   gray: '#A0A0A0',
@@ -14,21 +21,27 @@ const COLORS = {
 };
 
 export default function TabLayout() {
+  // Acessa o estado global para saber o número de eventos confirmados.
   const { confirmedEventsCount } = useContext(EventsContext);
-  const insets = useSafeAreaInsets(); // Mede as áreas seguras
+  
+  // Obtém as dimensões das áreas seguras para ajustar o layout dinamicamente.
+  const insets = useSafeAreaInsets();
 
   return (
+    // Componente do Expo Router que renderiza a navegação por abas.
     <Tabs
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.gray,
-        // A mágica acontece aqui:
+        headerShown: false, // Oculta o cabeçalho padrão em todas as telas de abas.
+        tabBarActiveTintColor: COLORS.primary, // Cor do ícone e texto da aba ativa.
+        tabBarInactiveTintColor: COLORS.gray, // Cor do ícone e texto das abas inativas.
+        
+        // Estilo dinâmico para a barra de abas.
         tabBarStyle: {
-          height: 60 + insets.bottom, // A altura da barra agora inclui o espaço da navegação do celular
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10, // O padding interno também se ajusta
+          height: 60 + insets.bottom, // A altura total considera o espaço da barra de navegação do celular.
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10, // Adiciona espaçamento na base para não sobrepor a barra do sistema.
         },
       }}>
+      {/* Definição de cada aba. O 'name' corresponde ao nome do arquivo na pasta. */}
       <Tabs.Screen
         name="index"
         options={{
@@ -43,6 +56,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View>
               <MaterialCommunityIcons name={focused ? 'calendar-check' : 'calendar-check-outline'} size={28} color={color} />
+              {/* Renderização Condicional: Mostra a "bolinha" de notificação se houver eventos confirmados. */}
               {confirmedEventsCount > 0 && (
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>{confirmedEventsCount}</Text>
@@ -70,6 +84,7 @@ export default function TabLayout() {
   );
 }
 
+// Folha de estilos para o componente de notificação (badge).
 const styles = StyleSheet.create({
   badgeContainer: {
     position: 'absolute',

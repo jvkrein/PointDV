@@ -1,13 +1,19 @@
-// app/(tabs)/meus-eventos.jsx (VERSÃO FINAL COM ABAS DO LOJISTA FUNCIONANDO)
+// app/(tabs)/meus-eventos.jsx
+
+/**
+ * Tela dinâmica que exibe diferentes interfaces para o Consumidor e para o Lojista.
+ * Utiliza o estado global 'userType' para decidir qual componente renderizar.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useContext, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventsContext } from '../contexts/EventsContext';
 
+// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -17,7 +23,9 @@ const COLORS = {
   green: '#28a745',
 };
 
-// --- COMPONENTES REUTILIZÁVEIS DO CONSUMIDOR ---
+// --- COMPONENTES REUTILIZÁVEIS PARA A VISÃO DO CONSUMIDOR ---
+
+// Componente exibido quando o consumidor não confirmou presença em nenhum evento.
 const ConsumerEmptyState = () => (
   <View style={styles.container}>
     <MaterialCommunityIcons name="calendar-remove-outline" size={80} color={COLORS.gray} />
@@ -27,6 +35,7 @@ const ConsumerEmptyState = () => (
   </View>
 );
 
+// Componente que exibe um card de um evento confirmado.
 const ConfirmedEventCard = () => (
   <View style={styles.eventCard}>
     <Image source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500' }} style={styles.cardImage} />
@@ -39,13 +48,16 @@ const ConfirmedEventCard = () => (
   </View>
 );
 
+// Componente que encapsula a lógica de visualização de participação do consumidor.
 const ConsumerParticipationView = () => {
     const { confirmedEventsCount } = useContext(EventsContext);
+    // Se não há eventos confirmados, mostra o estado vazio.
     if (confirmedEventsCount === 0) { return <ConsumerEmptyState />; }
+    // Caso contrário, mostra a lista de eventos.
     return (<View style={styles.listContainer}><ConfirmedEventCard /></View>);
 };
 
-// --- COMPONENTE DA TELA DO CONSUMIDOR ---
+// --- COMPONENTE 1: TELA COMPLETA PARA O CONSUMIDOR ---
 const ConsumerEventsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -56,13 +68,15 @@ const ConsumerEventsScreen = () => {
   );
 };
 
-// --- COMPONENTE DA TELA DO LOJISTA ---
+// --- COMPONENTE 2: TELA COMPLETA PARA O LOJISTA ---
 const LojistaEventsScreen = () => {
+  // Estado local para controlar qual aba está ativa ('Meus Eventos' ou 'Participando').
   const [activeTab, setActiveTab] = useState('Meus Eventos');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      {/* Cabeçalho específico do lojista com botão para criar evento. */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Meus Eventos</Text>
@@ -75,14 +89,15 @@ const LojistaEventsScreen = () => {
           </TouchableOpacity>
         </Link>
       </View>
+      {/* Navegação por abas interna da tela do lojista. */}
       <View style={styles.lojistaTabContainer}>
-        {/* <-- MUDANÇA 1: Adicionado o onPress para mudar a aba --> */}
         <TouchableOpacity onPress={() => setActiveTab('Meus Eventos')} style={[styles.tabButton, activeTab === 'Meus Eventos' && styles.tabActive]}><Text style={[styles.tabText, activeTab === 'Meus Eventos' && styles.tabTextActive]}>Meus Eventos (0)</Text></TouchableOpacity>
-        {/* <-- MUDANÇA 2: Adicionado o onPress para mudar a aba --> */}
         <TouchableOpacity onPress={() => setActiveTab('Participando')} style={[styles.tabButton, activeTab === 'Participando' && styles.tabActive]}><Text style={[styles.tabText, activeTab === 'Participando' && styles.tabTextActive]}>Participando (0)</Text></TouchableOpacity>
       </View>
       
+      {/* Renderização condicional do conteúdo com base na aba ativa. */}
       {activeTab === 'Meus Eventos' ? (
+        // Visão para gerenciar os próprios eventos.
         <View style={styles.container}>
             <MaterialCommunityIcons name="calendar-blank-outline" size={80} color={COLORS.gray} />
             <Text style={styles.title}>Nenhum evento criado</Text>
@@ -95,19 +110,28 @@ const LojistaEventsScreen = () => {
             </Link>
         </View>
       ) : (
+        // Visão para eventos que o próprio lojista está participando (reutiliza a lógica do consumidor).
         <ConsumerParticipationView />
       )}
     </SafeAreaView>
   );
 };
 
-// --- COMPONENTE PRINCIPAL: O "SELETOR" INTELIGENTE ---
+// --- COMPONENTE PRINCIPAL (EXPORTADO): O "SELETOR" INTELIGENTE ---
+/**
+ * Este é o componente principal exportado pelo arquivo. Ele atua como um "seletor",
+ * lendo o 'userType' do estado global e decidindo qual das duas telas (Consumidor ou Lojista)
+ * deve ser renderizada.
+ */
 const MeusEventosPage = () => {
   const { userType } = useContext(EventsContext);
-  if (userType === 'lojista') { return <LojistaEventsScreen />; }
+  if (userType === 'lojista') {
+    return <LojistaEventsScreen />;
+  }
   return <ConsumerEventsScreen />;
 };
 
+// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   header: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
