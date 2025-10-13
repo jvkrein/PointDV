@@ -4,6 +4,12 @@
 
 Aplicativo agregador de eventos e promoções do comércio local em Dois Vizinhos - PR, desenvolvido para a disciplina de Programação para Dispositivos Móveis.
 
+##  Como Iniciar o programa
+
+Usar esse comando no CMD no local do projeto:
+
+`npx expo start`
+
 ## 📝 Descrição do Projeto
 
 O "PointDV" busca resolver o problema da descentralização na divulgação de eventos e promoções na cidade. A plataforma conecta consumidores a comerciantes locais, permitindo que os negócios divulguem suas atividades de forma simples e que os usuários descubram tudo que está acontecendo ao seu redor em um único lugar.
