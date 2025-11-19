@@ -1,14 +1,18 @@
 # 📱 Projeto PointDV
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+![Status](https://img.shields.io/badge/status-concluído-brightgreen)
 
 Aplicativo agregador de eventos e promoções do comércio local em Dois Vizinhos - PR, desenvolvido para a disciplina de Programação para Dispositivos Móveis.
 
-## ▶️ Como Iniciar o programa
+## ▶️ Como Iniciar o programa (MOBILE SOMENTE!)
 
 Usar esse comando no CMD no local do projeto:
 
 `npx expo start`
+
+Caso precise atualizar ou corrigir as dependências do projeto, execute:
+   
+`npx expo install --fix`
 
 ## 📝 Descrição do Projeto
 
@@ -38,9 +42,10 @@ O protótipo navegável da aplicação foi desenvolvido no Figma e pode ser aces
 
 | Categoria | Tecnologia |
 | :--- | :--- |
-| **Frontend (Mobile)** | `JavaScript, React Native` |
-| **Backend** | `(A definir)` - Node.js com Express |
-| **Banco de Dados** | `PostgreSQL` |
+| **Frontend (Mobile)** | `JavaScript, React Native, Expo` |
+| **Backend / Banco de Dados** | `Firebase (Auth, Firestore)` |
+| **Mapas e Localização** | `Google Maps API, React Native Maps` |
+| **Navegação** | `Expo Router` |
 | **Prototipagem** | `Figma` |
 
 ## 👥 Equipe
