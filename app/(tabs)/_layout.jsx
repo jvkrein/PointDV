@@ -11,7 +11,7 @@ import { Tabs } from 'expo-router';
 import React, { useContext } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EventsContext } from '../contexts/EventsContext';
+import { EventsContext } from '../../contexts/EventsContext';
 
 // Paleta de cores específica para este componente.
 const COLORS = {

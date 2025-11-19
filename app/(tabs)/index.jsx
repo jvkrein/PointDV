@@ -2,190 +2,422 @@
 
 /**
  * Tela principal da aplicação (Feed de Eventos).
- * Exibe as últimas promoções e eventos em duas seções: "Destaques" e "Todos os eventos".
- * Inclui funcionalidades de busca, filtros por categoria e navegação para a tela de detalhes.
  */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useState, useEffect, useMemo, useContext, useRef, useCallback } from 'react'; 
 import {
-  ImageBackground,
+  Image, 
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../firebaseConfig'; 
+import { collection, query, onSnapshot, orderBy, where } from 'firebase/firestore'; 
+import { CATEGORIAS_EVENTOS } from '../../constants/categories'; 
+import FiltroModal from '../components/FiltroModal'; 
+import { EventsContext } from '../../contexts/EventsContext'; 
 
-// Paleta de cores padrão da aplicação.
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
   lightGray: '#F0F2F5',
   gray: '#A0A0A0',
   dark: '#333333',
+  red: '#dc3545',
 };
 
-// Objeto de dados estáticos para simular uma chamada de API e popular a tela.
-// Cada evento contém todas as informações necessárias para o feed e para a tela de detalhes.
-const DUMMY_EVENTS = {
-  destaques: [
-    { 
-      id: 1, 
-      category: 'Comida', 
-      image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500', 
-      title: 'Jantar Romântico', 
-      location: 'Restaurante La Bella', 
-      time: '19:30', 
-      shortDate: 'OUT\n13',
-      fullDate: 'segunda-feira, 13 de outubro de 2025',
-      address: 'Av. Paulista, 1000',
-      description: 'Menu especial para casais com entrada, prato principal e sobremesa. Reservas pelo telefone.',
-      establishment: {
-        name: 'Restaurante La Bella',
-        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500',
-        phone: '(11) 99999-3456',
-        hours: 'Ter-Dom: 12h-23h'
-      }
-    },
-    { 
-      id: 2, 
-      category: 'Entretenimento', 
-      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500', 
-      title: 'Festa Anos 80', 
-      location: 'Clube Noturno', 
-      time: '22:00', 
-      shortDate: 'OUT\n15',
-      fullDate: 'quarta-feira, 15 de outubro de 2025',
-      address: 'Rua Augusta, 500',
-      description: 'DJ tocando os maiores sucessos dos anos 80. Open bar até meia-noite. Ingressos limitados!',
-      establishment: {
-        name: 'Clube Noturno',
-        image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=500',
-        phone: '(11) 98888-1234',
-        hours: 'Sex-Sáb: 22h-04h'
-      }
-    },
-  ],
-  todos: [], // Pode ser populado com mais eventos.
-};
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549488344-cbb6c34cf08b?w=500';
 
-/**
- * Componente reutilizável para exibir um card de evento.
- * @param {object} event - O objeto contendo os dados do evento.
- * @param {boolean} isHighlight - Se true, renderiza um card maior para a seção de destaques.
- */
-const EventCard = ({ event, isHighlight = false }) => (
-  // O componente Link do Expo Router envolve o card para torná-lo navegável.
-  <Link 
-    href={{
-      pathname: "/detalhes-evento",
-      // Passa o objeto completo do evento como um parâmetro de rota.
-      // O objeto é convertido para string JSON para ser enviado e será decodificado na tela de destino.
-      params: { eventData: JSON.stringify(event) }
-    }} 
-    asChild
-  >
-    <TouchableOpacity style={isHighlight ? styles.highlightCard : styles.eventCard}>
-      <ImageBackground source={{ uri: event.image }} style={styles.cardImage} imageStyle={{ borderRadius: 8 }}>
-        <View style={styles.cardTagContainer}><Text style={styles.cardTag}>{event.category}</Text></View>
-        {isHighlight && (<View style={styles.dateTagContainer}><Text style={styles.dateTag}>{event.shortDate}</Text></View>)}
-      </ImageBackground>
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{event.title}</Text>
-        <Text style={styles.cardLocation}>{event.location}</Text>
-        {isHighlight && <Text style={styles.cardDescription} numberOfLines={2}>{event.description}</Text>}
-        <View style={styles.cardTimeContainer}>
-          <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.gray} />
-          <Text style={styles.cardTime}>{event.time}</Text>
+const EventCard = ({ event }) => {
+  // Lógica de visualização do card (para mostrar a etiqueta)
+  const checkIsEnded = () => {
+      // Se não tiver data fim, tenta usar a data de início como referência
+      if (!event.dataFim || !event.horaFim) {
+        if (event.data && event.horario) {
+           try {
+            const parts = event.data.split('/');
+            const timeParts = event.horario.split(':');
+            if (parts.length === 3 && timeParts.length === 2) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                const hour = parseInt(timeParts[0], 10);
+                const min = parseInt(timeParts[1], 10);
+                const eventDate = new Date(year, month, day, hour, min);
+                return new Date() > eventDate;
+            }
+           } catch (e) { return false; }
+        }
+        return false; 
+      }
+
+      try {
+        const parts = event.dataFim.split('/');
+        const timeParts = event.horaFim.split(':');
+        
+        if (parts.length === 3 && timeParts.length === 2) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; // Mês começa em 0
+            const year = parseInt(parts[2], 10);
+            const hour = parseInt(timeParts[0], 10);
+            const min = parseInt(timeParts[1], 10);
+            
+            const eventEndDate = new Date(year, month, day, hour, min);
+            return new Date() > eventEndDate;
+        }
+        return false;
+      } catch (e) { return false; }
+  };
+  
+  const isEnded = checkIsEnded();
+
+  return (
+    <Link 
+      href={{
+        pathname: "/detalhes-evento",
+        params: { eventData: JSON.stringify(event) }
+      }} 
+      asChild
+    >
+      <TouchableOpacity style={styles.eventCard}>
+        <View>
+          <Image 
+            source={{ uri: event.imageUrl || PLACEHOLDER_IMAGE }} 
+            style={styles.cardImage} 
+          />
+          <View style={styles.cardTagContainer}>
+            <Text style={styles.cardTag}>{event.categoria}</Text>
+          </View>
+          
+          {isEnded && (
+            <View style={styles.cardEndedContainer}>
+              <Text style={styles.cardEndedText}>ENCERRADO</Text>
+            </View>
+          )}
         </View>
-      </View>
-    </TouchableOpacity>
-  </Link>
-);
+
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{event.titulo}</Text>
+          <Text style={styles.cardLocation}>{event.endereco}</Text>
+          <Text style={styles.cardDescription} numberOfLines={2}>{event.descricao}</Text>
+          <View style={styles.cardTimeContainer}>
+            <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={COLORS.gray} />
+            <Text style={styles.cardTime}>{event.dataInicio || event.data}</Text>
+            <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.gray} style={{marginLeft: 10}} />
+            <Text style={styles.cardTime}>
+              {event.horaInicio || event.horario} 
+              {event.horaFim ? ` - ${event.horaFim}` : ''}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Link>
+  );
+};
 
 const FeedScreen = () => {
+  const { userType } = useContext(EventsContext); 
+
+  const [allEvents, setAllEvents] = useState([]); 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); 
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); 
+  const [filtrosAtivos, setFiltrosAtivos] = useState({
+    categoria: null,
+    apenasFuturos: false, 
+  });
+  
+  const isInitialLoad = useRef(true);
+  const filtroCount = Object.values(filtrosAtivos).filter(val => val && val !== false).length;
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setRefreshKey(prev => prev + 1); 
+  }, []);
+
+  // Busca do Firebase
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      setLoading(true);
+    }
+
+    let q = query(collection(db, 'eventos'), orderBy('criadoEm', 'desc'));
+
+    if (filtrosAtivos.categoria) {
+      q = query(q, where('categoria', '==', filtrosAtivos.categoria));
+    }
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const listaEventos = [];
+      querySnapshot.forEach((doc) => {
+        listaEventos.push({ id: doc.id, ...doc.data() });
+      });
+      setAllEvents(listaEventos); 
+      setLoading(false);
+      setRefreshing(false); 
+      setError(null); 
+      isInitialLoad.current = false; 
+    }, 
+    (firebaseError) => {
+      console.error("Erro ao buscar eventos: ", firebaseError);
+      setError("Não foi possível carregar os eventos.");
+      setLoading(false);
+      setRefreshing(false);
+      isInitialLoad.current = false; 
+    });
+    return () => unsubscribe();
+  }, [filtrosAtivos.categoria, refreshKey]); 
+
+
+  // --- FILTRAGEM CLIENT-SIDE ---
+  const filteredEvents = useMemo(() => {
+    
+    // Função auxiliar de data blindada
+    const isEventEnded = (event) => {
+        const now = new Date();
+
+        // 1. Verifica data de fim (prioridade)
+        if (event.dataFim && event.horaFim) {
+            try {
+                const parts = event.dataFim.split('/');
+                const timeParts = event.horaFim.split(':');
+                
+                if (parts.length === 3 && timeParts.length === 2) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parseInt(parts[2], 10);
+                    const hour = parseInt(timeParts[0], 10);
+                    const min = parseInt(timeParts[1], 10);
+                    
+                    const end = new Date(year, month, day, hour, min);
+                    return now > end;
+                }
+            } catch (e) { console.log('Erro dataFim:', e); }
+        }
+
+        // 2. Fallback: Verifica data de início (eventos antigos)
+        // Se a data de início já passou, consideramos "encerrado" se não tiver fim?
+        // Ou consideramos que dura o dia todo? Vamos assumir que dura até o fim do dia se não tiver horaFim.
+        if (event.data && event.horario) {
+             try {
+                const parts = event.data.split('/');
+                const timeParts = event.horario.split(':');
+                if (parts.length === 3 && timeParts.length === 2) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parseInt(parts[2], 10);
+                    const hour = parseInt(timeParts[0], 10);
+                    const min = parseInt(timeParts[1], 10);
+                    
+                    const start = new Date(year, month, day, hour, min);
+                    return now > start; // Se já começou e não tem fim, considera passado? (Ajuste conforme necessidade)
+                }
+            } catch (e) { return false; }
+        }
+
+        return false; // Se não conseguir ler a data, não esconde.
+    };
+
+    let result = allEvents;
+
+    // Filtro de Busca
+    if (searchTerm) {
+      result = result.filter(event => 
+        event.titulo.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro de Datas Futuras
+    if (filtrosAtivos.apenasFuturos) {
+      // Mantém apenas se !isEventEnded
+      result = result.filter(event => !isEventEnded(event));
+    }
+
+    return result;
+  }, [allEvents, searchTerm, filtrosAtivos.apenasFuturos]); 
+
+
+  const handleSelectCategory = (categoriaNome) => {
+    setFiltrosAtivos(prev => ({
+      ...prev,
+      categoria: prev.categoria === categoriaNome ? null : categoriaNome
+    }));
+  };
+
+  const renderCategoryButtons = () => {
+    const todasCategorias = [
+      { id: 'todos', nome: 'Todos', icon: 'compass' },
+      ...CATEGORIAS_EVENTOS
+    ];
+
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        {todasCategorias.map(item => {
+          const isSelected = item.id === 'todos' 
+            ? !filtrosAtivos.categoria 
+            : filtrosAtivos.categoria === item.nome;
+          
+          return (
+            <TouchableOpacity 
+              key={item.id}
+              style={[
+                styles.categoryButton, 
+                isSelected && styles.categoryButtonActive
+              ]}
+              onPress={() => handleSelectCategory(item.id === 'todos' ? null : item.nome)}
+            >
+              <MaterialCommunityIcons name={item.icon} size={24} color={isSelected ? COLORS.primary : COLORS.gray} />
+              <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>{item.nome}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    );
+  };
+  
+  const renderContent = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.centeredView}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.infoText}>Carregando eventos...</Text>
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.centeredView}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={40} color={COLORS.gray} />
+          <Text style={styles.infoText}>{error}</Text>
+        </View>
+      );
+    }
+    if (filteredEvents.length === 0) {
+      return (
+         <View style={styles.centeredView}>
+          <MaterialCommunityIcons name="calendar-search" size={40} color={COLORS.gray} />
+          <Text style={styles.infoText}>Nenhum evento encontrado.</Text>
+          <Text style={styles.infoSubText}>Tente limpar seus filtros ou busca.</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Todos os eventos</Text>
+          <Text style={styles.sectionCount}>{filteredEvents.length}</Text>
+        </View>
+        
+        {filteredEvents.map(event => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </View>
+    );
+  };
+
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Cabeçalho com localização e logo. */}
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+      >
         <View style={styles.header}>
-          <View><Text style={styles.headerLocationText}>Entregar em</Text><Text style={styles.headerLocation}>Casa - Centro</Text></View>
           <Text style={styles.headerLogo}>PointDV</Text>
         </View>
         
-        {/* Barra de busca e botão de filtro. */}
         <View style={styles.searchContainer}>
           <MaterialCommunityIcons name="magnify" size={22} color={COLORS.gray} />
-          <TextInput placeholder="Buscar eventos..." style={styles.searchInput} />
-          <MaterialCommunityIcons name="filter-variant" size={22} color={COLORS.dark} />
-        </View>
-
-        {/* Lista horizontal de categorias. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-          <TouchableOpacity style={[styles.categoryButton, styles.categoryButtonActive]}>
-            <MaterialCommunityIcons name="compass" size={24} color={COLORS.white} />
-            <Text style={[styles.categoryText, styles.categoryTextActive]}>Todos</Text>
+          <TextInput 
+            placeholder="Buscar por título..." 
+            style={styles.searchInput}
+            value={searchTerm}
+            onChangeText={setSearchTerm} 
+          />
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setModalVisible(true)} 
+          >
+            <MaterialCommunityIcons name="filter-variant" size={22} color={COLORS.dark} />
+            {filtroCount > 0 && (
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>{filtroCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.categoryButton}>
-            <MaterialCommunityIcons name="silverware-fork-knife" size={24} color={COLORS.gray} />
-            <Text style={styles.categoryText}>Comida</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Seção de Destaques com rolagem horizontal. */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Destaques perto de você</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {DUMMY_EVENTS.destaques.map(event => <EventCard key={event.id} event={event} isHighlight />)}
-          </ScrollView>
         </View>
 
-        {/* Seção com todos os outros eventos. */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Todos os eventos</Text>
-          {DUMMY_EVENTS.todos.map(event => <EventCard key={event.id} event={event} />)}
-        </View>
+        {renderCategoryButtons()}
+
+        {renderContent()}
+
       </ScrollView>
+      
+      <FiltroModal 
+        modalVisible={modalVisible}
+        setModalVisible={setModalVisible}
+        filtrosAtivos={filtrosAtivos}
+        setFiltrosAtivos={setFiltrosAtivos}
+        setSearchTerm={setSearchTerm} 
+      />
     </SafeAreaView>
   );
 };
 
-// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { paddingHorizontal: 15, paddingTop: 15, paddingBottom: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerLocationText: { color: COLORS.gray },
-  headerLocation: { fontWeight: 'bold', color: COLORS.dark },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 10 },
   headerLogo: { color: COLORS.primary, fontWeight: 'bold', fontSize: 18 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightGray, borderRadius: 8, paddingHorizontal: 10, marginTop: 20 },
-  searchInput: { flex: 1, height: 45, marginLeft: 10 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightGray, borderRadius: 8, paddingHorizontal: 10, marginTop: 10 }, 
+  searchInput: { flex: 1, height: 45, marginLeft: 10, fontSize: 16 },
+  filterButton: { padding: 5, position: 'relative' },
+  badgeContainer: { position: 'absolute', right: -5, top: -5, backgroundColor: COLORS.red, borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.white },
+  badgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
   categoryScroll: { marginTop: 20 },
-  categoryButton: { alignItems: 'center', marginRight: 20 },
-  categoryButtonActive: { backgroundColor: COLORS.primary, borderRadius: 50, width: 50, height: 50, justifyContent: 'center' },
-  categoryText: { color: COLORS.gray, marginTop: 5 },
-  categoryTextActive: { display: 'none' },
+  categoryButton: { alignItems: 'center', marginRight: 20, paddingHorizontal: 5 },
+  categoryButtonActive: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
+  categoryText: { color: COLORS.gray, marginTop: 5, fontWeight: '500' },
+  categoryTextActive: { color: COLORS.primary, fontWeight: 'bold' },
   section: { marginTop: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  highlightCard: { width: 250, backgroundColor: COLORS.white, borderRadius: 8, marginRight: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
-  eventCard: { backgroundColor: COLORS.white, borderRadius: 8, marginBottom: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
-  cardImage: { height: 120, justifyContent: 'space-between', padding: 8, flexDirection: 'row' },
-  cardTagContainer: { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold' },
+  sectionCount: { fontSize: 14, color: COLORS.gray, fontWeight: 'bold' },
+  eventCard: { backgroundColor: COLORS.white, borderRadius: 8, marginBottom: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, borderWidth: 1, borderColor: '#eee' },
+  cardImage: { height: 140, width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8 },
+  cardTagContainer: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   cardTag: { color: COLORS.white, fontSize: 12, fontWeight: 'bold' },
-  dateTagContainer: { backgroundColor: COLORS.white, borderRadius: 4, padding: 5, alignItems: 'center' },
-  dateTag: { color: COLORS.dark, fontWeight: 'bold', fontSize: 12, textAlign: 'center' },
-  cardContent: { padding: 10 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold' },
-  cardLocation: { color: COLORS.gray, fontSize: 12, marginTop: 4 },
-  cardDescription: { color: COLORS.dark, fontSize: 12, marginTop: 4 },
-  cardTimeContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  cardTime: { marginLeft: 5, color: COLORS.gray, fontSize: 12 },
+  
+  // Estilos do Badge Encerrado
+  cardEndedContainer: { position: 'absolute', top: 10, right: 10, backgroundColor: COLORS.red, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
+  cardEndedText: { color: COLORS.white, fontSize: 12, fontWeight: 'bold' },
+  
+  cardContent: { padding: 12 }, 
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 }, 
+  cardLocation: { color: COLORS.gray, fontSize: 14, marginBottom: 8 }, 
+  cardDescription: { color: COLORS.dark, fontSize: 14, marginBottom: 12, lineHeight: 20 },
+  cardTimeContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
+  cardTime: { marginLeft: 5, color: COLORS.gray, fontSize: 14 },
+  centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 50 },
+  infoText: { fontSize: 16, color: COLORS.gray, marginTop: 10 },
+  infoSubText: { fontSize: 14, color: COLORS.gray, marginTop: 5 },
 });
 
 export default FeedScreen;

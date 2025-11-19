@@ -1,16 +1,20 @@
-// app/criar-evento.jsx
+// app/editar-evento.jsx
+
+/**
+ * Tela de Edição de Evento.
+ */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router'; 
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react'; 
 import { 
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator, Image, Modal 
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator, Image, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventsContext } from '../contexts/EventsContext';
 import { auth, db } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore'; 
 import { CATEGORIAS_EVENTOS } from '../constants/categories';
 import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -49,15 +53,16 @@ const CategoryButton = ({ item, isSelected, onPress }) => (
   </TouchableOpacity>
 );
 
-const CriarEventoScreen = () => {
+const EditarEventoScreen = () => {
   const { userType, selectedMapAddress, setSelectedMapAddress } = useContext(EventsContext);
-  const isFocused = useIsFocused(); 
+  const { eventId } = useLocalSearchParams(); 
+  const isFocused = useIsFocused();
 
   const [titulo, setTitulo] = useState('');
   const [categoria, setCategoria] = useState('');
   const [descricao, setDescricao] = useState('');
   
-  // Datas de Início e Fim
+  // NOVOS ESTADOS DE DATA (Início e Fim)
   const [dataInicio, setDataInicio] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
@@ -65,12 +70,13 @@ const CriarEventoScreen = () => {
 
   const [endereco, setEndereco] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-
-  const [isLoading, setIsLoading] = useState(false);
+  
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoadingData, setIsLoadingData] = useState(true); 
   const [error, setError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // --- MÁSCARAS ---
+  // --- MÁSCARAS (Genéricas para reuso) ---
   const handleDateChange = (text, setFunc) => {
     let numbers = text.replace(/[^0-9]/g, '');
     if (numbers.length > 8) numbers = numbers.substr(0, 8);
@@ -86,7 +92,7 @@ const CriarEventoScreen = () => {
     else setFunc(numbers);
   };
 
-  // --- IMAGEM ---
+  // --- IMAGENS ---
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
@@ -104,66 +110,102 @@ const CriarEventoScreen = () => {
       setImageUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
     }
   };
-
   const handleSelectDefaultImage = (catName) => {
     const url = DEFAULT_IMAGES[catName] || DEFAULT_IMAGES['default'];
     setImageUrl(url);
     setModalVisible(false);
   };
 
-  // --- MAPA (Recuperar endereço do Contexto) ---
+  // --- CARREGAR DADOS (Com compatibilidade para eventos antigos) ---
+  useEffect(() => {
+    if (!eventId) {
+      Alert.alert("Erro", "Nenhum ID de evento fornecido.");
+      router.back();
+      return;
+    }
+    const fetchEventData = async () => {
+      try {
+        const eventDocRef = doc(db, 'eventos', eventId);
+        const docSnap = await getDoc(eventDocRef);
+        if (docSnap.exists()) {
+          const d = docSnap.data();
+          setTitulo(d.titulo);
+          setCategoria(d.categoria);
+          setDescricao(d.descricao);
+          
+          // Lógica de Compatibilidade:
+          // Se existir 'dataInicio', usa. Se não, tenta usar o antigo 'data'.
+          setDataInicio(d.dataInicio || d.data || '');
+          setHoraInicio(d.horaInicio || d.horario || '');
+          
+          // Novos campos (podem estar vazios em eventos antigos)
+          setDataFim(d.dataFim || '');
+          setHoraFim(d.horaFim || '');
+
+          setEndereco(d.endereco); 
+          setImageUrl(d.imageUrl || '');
+        } else {
+          Alert.alert("Erro", "Evento não encontrado.");
+          router.back();
+        }
+      } catch (err) {
+        console.error("Erro ao buscar evento:", err);
+        router.back();
+      }
+      setIsLoadingData(false);
+    };
+    fetchEventData();
+  }, [eventId]); 
+
+  // --- MAPA ---
   useEffect(() => {
     if (isFocused && selectedMapAddress) {
       setEndereco(selectedMapAddress);
-      setSelectedMapAddress(null);
+      setSelectedMapAddress(null); 
     }
-  }, [isFocused, selectedMapAddress]); 
+  }, [isFocused, selectedMapAddress]);
 
-  const handleCreateEvent = async () => {
+  // --- SALVAR ---
+  const handleUpdateEvent = async () => {
     setError(null);
     if (!titulo || !categoria || !descricao || !dataInicio || !horaInicio || !dataFim || !horaFim || !endereco) {
-      setError('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-    const user = auth.currentUser;
-    if (!user) {
-      setError('Você não está logado. Por favor, reinicie o app.');
+      setError('Por favor, preencha todos os campos.');
       return;
     }
     setIsLoading(true);
     try {
-      const eventoData = {
+      const eventoAtualizado = {
         titulo,
-        categoria, 
+        categoria,
         descricao,
+        // Novos campos
         dataInicio,
         horaInicio,
         dataFim,
         horaFim,
-        endereco,
+        endereco, 
         imageUrl: imageUrl || '',
-        lojistaId: user.uid,
-        criadoEm: serverTimestamp(), 
       };
-      const docRef = await addDoc(collection(db, 'eventos'), eventoData);
+      const eventDocRef = doc(db, 'eventos', eventId);
+      await updateDoc(eventDocRef, eventoAtualizado);
       setIsLoading(false);
-      Alert.alert('Sucesso!', 'Seu evento foi criado.');
+      Alert.alert('Sucesso!', 'Seu evento foi atualizado.');
       router.back(); 
     } catch (firebaseError) {
       setIsLoading(false);
-      console.error('Erro ao criar evento:', firebaseError);
+      console.error('Erro ao atualizar evento:', firebaseError);
       setError('Ocorreu um erro ao salvar seu evento.');
     }
   };
 
-  if (userType !== 'lojista') {
-    return (
+  if (userType !== 'lojista') { return ( <SafeAreaView><Text>Acesso Negado</Text></SafeAreaView> ); }
+  if (isLoadingData) {
+     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}><MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.dark} /></TouchableOpacity>
-          <Text style={styles.headerTitle}>Novo Evento</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={{marginTop: 10, color: COLORS.gray}}>Carregando dados do evento...</Text>
         </View>
-        <View style={styles.permissionDeniedContainer}><Text>Acesso Negado</Text></View>
       </SafeAreaView>
     );
   }
@@ -175,7 +217,7 @@ const CriarEventoScreen = () => {
         <TouchableOpacity onPress={() => router.back()} disabled={isLoading}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Novo Evento</Text>
+        <Text style={styles.headerTitle}>Editar Evento</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -192,82 +234,70 @@ const CriarEventoScreen = () => {
           <Text style={styles.label}>Descrição *</Text>
           <TextInput style={[styles.input, styles.textArea]} multiline value={descricao} onChangeText={setDescricao} editable={!isLoading} />
         </View>
-
+        
+        {/* SEÇÃO INÍCIO */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Início do Evento</Text>
+          <Text style={styles.sectionTitle}>Início</Text>
           <View style={styles.row}>
             <View style={styles.halfInput}>
               <Text style={styles.label}>Data Início *</Text>
               <TextInput 
                 style={styles.input} 
-                placeholder="DD/MM/AAAA" 
                 value={dataInicio} 
                 onChangeText={(t) => handleDateChange(t, setDataInicio)} 
                 keyboardType="numeric" 
                 maxLength={10} 
-                editable={!isLoading}
+                editable={!isLoading} 
               />
             </View>
             <View style={styles.halfInput}>
               <Text style={styles.label}>Hora Início *</Text>
               <TextInput 
                 style={styles.input} 
-                placeholder="HH:MM" 
                 value={horaInicio} 
                 onChangeText={(t) => handleTimeChange(t, setHoraInicio)} 
                 keyboardType="numeric" 
                 maxLength={5} 
-                editable={!isLoading}
+                editable={!isLoading} 
               />
             </View>
           </View>
         </View>
 
+        {/* SEÇÃO FIM */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Término do Evento</Text>
+          <Text style={styles.sectionTitle}>Término</Text>
           <View style={styles.row}>
             <View style={styles.halfInput}>
               <Text style={styles.label}>Data Fim *</Text>
               <TextInput 
                 style={styles.input} 
-                placeholder="DD/MM/AAAA" 
                 value={dataFim} 
                 onChangeText={(t) => handleDateChange(t, setDataFim)} 
                 keyboardType="numeric" 
                 maxLength={10} 
-                editable={!isLoading}
+                editable={!isLoading} 
               />
             </View>
             <View style={styles.halfInput}>
               <Text style={styles.label}>Hora Fim *</Text>
               <TextInput 
                 style={styles.input} 
-                placeholder="HH:MM" 
                 value={horaFim} 
                 onChangeText={(t) => handleTimeChange(t, setHoraFim)} 
                 keyboardType="numeric" 
                 maxLength={5} 
-                editable={!isLoading}
+                editable={!isLoading} 
               />
             </View>
           </View>
         </View>
-
+        
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Localização</Text>
           <Text style={styles.label}>Endereço Completo *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Digite ou selecione no mapa" 
-            value={endereco}
-            onChangeText={setEndereco}
-            editable={!isLoading}
-          />
-          <TouchableOpacity 
-            style={styles.mapButton} 
-            onPress={() => router.push({ pathname: '/mapa-selecao', params: { fromScreen: '/criar-evento' } })}
-            disabled={isLoading}
-          >
+          <TextInput style={styles.input} placeholder="Digite ou selecione no mapa" value={endereco} onChangeText={setEndereco} editable={!isLoading} />
+          <TouchableOpacity style={styles.mapButton} onPress={() => router.push({ pathname: '/mapa-selecao', params: { fromScreen: '/editar-evento' } })} disabled={isLoading}>
             <MaterialCommunityIcons name="map-marker-radius" size={20} color={COLORS.primary} />
             <Text style={styles.mapButtonText}>Selecionar no Mapa</Text>
           </TouchableOpacity>
@@ -303,16 +333,17 @@ const CriarEventoScreen = () => {
 
       <View style={styles.footer}>
         {error && (<Text style={styles.errorText}>{error}</Text>)}
-        <TouchableOpacity style={[styles.primaryButton, { opacity: isLoading ? 0.7 : 1.0 }]} onPress={handleCreateEvent} disabled={isLoading}>
-          {isLoading ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.primaryButtonText}>Criar Evento</Text>}
+        <TouchableOpacity style={[styles.primaryButton, { opacity: isLoading ? 0.7 : 1.0 }]} onPress={handleUpdateEvent} disabled={isLoading}>
+          {isLoading ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.primaryButtonText}>Salvar Alterações</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()} disabled={isLoading}>
           <Text style={styles.cancelButtonText}>Cancelar</Text>
         </TouchableOpacity>
       </View>
-      
-      <Modal visible={modalVisible} transparent={true} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-         <View style={styles.modalContainer}>
+
+       {/* Modal de Imagens Padrão */}
+       <Modal visible={modalVisible} transparent={true} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Escolher Imagem Padrão</Text>
@@ -339,6 +370,7 @@ const CriarEventoScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.lightGray },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
   header: { padding: 15, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: '#eee' },
   headerTitle: { fontSize: 18, fontWeight: 'bold', marginLeft: 15 },
   container: { padding: 15, paddingBottom: 30 },
@@ -382,4 +414,4 @@ const styles = StyleSheet.create({
   modalText: { textAlign: 'center', fontSize: 12, fontWeight: '600' },
 });
 
-export default CriarEventoScreen;
+export default EditarEventoScreen;

@@ -2,20 +2,26 @@
 
 /**
  * Tela de Perfil do Usuário.
- * Exibe informações do usuário (consumidor ou lojista),
- * além de opções de navegação, como "Meus Eventos", "Favoritos" e "Configurações".
- * Inclui também botão de logout e seção "Sobre o PointDV".
  */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useContext } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useState, useEffect } from 'react'; 
+import { 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  ActivityIndicator,
+  Image
+} from 'react-native'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EventsContext } from '../contexts/EventsContext';
+import { EventsContext } from '../../contexts/EventsContext'; 
+import { db } from '../../firebaseConfig'; 
+import { doc, getDoc } from 'firebase/firestore'; 
 
-/** Paleta de cores padrão da aplicação. */
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -25,14 +31,6 @@ const COLORS = {
   red: '#dc3545',
 };
 
-/** Dados de exemplo para simular os perfis. */
-const consumidorData = { name: 'Maria Santos', type: 'Consumidor', email: 'consumidor@teste.com' };
-const lojistaData = { name: 'João Silva', type: 'Lojista', email: 'lojista@teste.com', establishment: 'Bar do João' };
-
-/**
- * Componente reutilizável de item de lista.
- * Representa uma opção de menu no perfil (como "Favoritos", "Configurações", etc.).
- */
 const ProfileListItem = ({ icon, title, subtitle, onPress }) => (
   <TouchableOpacity style={styles.listItem} onPress={onPress}>
     <View style={styles.listItemIcon}>
@@ -46,46 +44,101 @@ const ProfileListItem = ({ icon, title, subtitle, onPress }) => (
   </TouchableOpacity>
 );
 
-/**
- * Componente principal da tela de perfil.
- * Exibe informações do usuário logado e opções de ação.
- */
 const PerfilScreen = () => {
-  const { userType, setUserType } = useContext(EventsContext);
-  const userData = userType === 'consumidor' ? consumidorData : lojistaData;
+  const { userType, logout, userData, favoritedEvents, eventosConfirmados } = useContext(EventsContext);
 
-  /** Função de logout — redefine tipo de usuário e redireciona para login. */
+  // Estados para guardar a contagem REAL (validada)
+  const [confirmedCount, setConfirmedCount] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [isLoadingCounts, setIsLoadingCounts] = useState(true);
+
+  // --- LÓGICA DE VERIFICAÇÃO ---
+  useEffect(() => {
+    const validateCounts = async () => {
+      setIsLoadingCounts(true);
+
+      // Função auxiliar para checar quantos IDs são válidos
+      const getValidCount = async (ids) => {
+        if (!ids || ids.length === 0) return 0;
+        try {
+          // Faz uma busca para cada ID para ver se o doc existe
+          const promises = ids.map(id => getDoc(doc(db, 'eventos', id)));
+          const docs = await Promise.all(promises);
+          // Filtra só os que existem (.exists())
+          return docs.filter(d => d.exists()).length;
+        } catch (e) {
+          console.error("Erro ao validar contagem:", e);
+          return 0;
+        }
+      };
+
+      const [validConfirmed, validFavorites] = await Promise.all([
+        getValidCount(eventosConfirmados),
+        getValidCount(favoritedEvents)
+      ]);
+
+      setConfirmedCount(validConfirmed);
+      setFavoritesCount(validFavorites);
+      setIsLoadingCounts(false);
+    };
+
+    validateCounts();
+    
+    // Roda sempre que as listas do contexto mudarem
+  }, [eventosConfirmados, favoritedEvents]);
+
+
   const handleLogout = () => {
-    setUserType('consumidor');
-    router.replace('/login');
+    logout();
   };
+
+  if (!userData) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Textos dinâmicos baseados na contagem real
+  const eventosConfirmadosSub = isLoadingCounts 
+    ? 'Calculando...' 
+    : `${confirmedCount} ${confirmedCount === 1 ? 'evento confirmado' : 'eventos confirmados'}`;
+    
+  const favoritosSub = isLoadingCounts 
+    ? 'Calculando...' 
+    : `${favoritesCount} ${favoritesCount === 1 ? 'evento salvo' : 'eventos salvos'}`;
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView>
+      <ScrollView keyboardShouldPersistTaps="handled">
 
-        {/* Cabeçalho do perfil com nome, tipo e avatar. */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.white} />
           </TouchableOpacity>
-
           <View style={styles.avatar}>
-            <MaterialCommunityIcons name="account-outline" size={40} color={COLORS.primary} />
+            {userData.fotoPerfil ? (
+              <Image 
+                source={{ uri: userData.fotoPerfil }} 
+                style={{ width: 80, height: 80, borderRadius: 40 }} 
+              />
+            ) : (
+              <MaterialCommunityIcons name="account-outline" size={40} color={COLORS.primary} />
+            )}
           </View>
-
-          <Text style={styles.userName}>{userData.name}</Text>
-
+          <Text style={styles.userName}>{userData.nome}</Text>
           <View style={userType === 'consumidor' ? styles.userTagConsumer : styles.userTagLojista}>
-            <Text style={styles.userTagText}>{userData.type}</Text>
+            <Text style={styles.userTagText}>{userData.tipoConta}</Text>
           </View>
         </View>
 
-        {/* Conteúdo principal com dados e opções de ação. */}
         <View style={styles.content}>
 
-          {/* Cartão de informações pessoais (e estabelecimento, se lojista). */}
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <MaterialCommunityIcons name="email-outline" size={24} color={COLORS.primary} />
@@ -94,8 +147,6 @@ const PerfilScreen = () => {
                 <Text style={styles.infoValue}>{userData.email}</Text>
               </View>
             </View>
-
-            {/* Exibe o nome do estabelecimento apenas para lojistas. */}
             {userType === 'lojista' && (
               <>
                 <View style={styles.divider} />
@@ -103,15 +154,21 @@ const PerfilScreen = () => {
                   <MaterialCommunityIcons name="storefront-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoTextContainer}>
                     <Text style={styles.infoTitle}>Estabelecimento</Text>
-                    <Text style={styles.infoValue}>{userData.establishment}</Text>
+                    <Text style={styles.infoValue}>{userData.nomeNegocio}</Text>
                   </View>
                 </View>
               </>
             )}
           </View>
 
-          {/* Lista de ações e atalhos do perfil. */}
           <View style={styles.actionList}>
+            <ProfileListItem 
+              icon="account-edit-outline"
+              title="Editar Perfil"
+              subtitle="Atualizar dados pessoais"
+              onPress={() => router.push('/editar-perfil')}
+            />
+
             {userType === 'lojista' && (
               <ProfileListItem 
                 icon="calendar-edit"
@@ -120,21 +177,20 @@ const PerfilScreen = () => {
                 onPress={() => router.push('/(tabs)/meus-eventos')}
               />
             )}
-
+            
             <ProfileListItem 
               icon="calendar-check-outline"
               title="Meus Eventos"
-              subtitle="1 evento confirmado"
+              subtitle={eventosConfirmadosSub} 
               onPress={() => router.push('/(tabs)/meus-eventos')}
             />
-
+            
             <ProfileListItem 
               icon="heart-outline"
               title="Favoritos"
-              subtitle="0 eventos salvos"
+              subtitle={favoritosSub}
               onPress={() => router.push('/(tabs)/favoritos')}
             />
-
             <ProfileListItem 
               icon="cog-outline"
               title="Configurações"
@@ -143,21 +199,16 @@ const PerfilScreen = () => {
             />
           </View>
 
-          {/* Seção informativa sobre o aplicativo. */}
           <View style={styles.aboutSection}>
-            <MaterialCommunityIcons name="information-outline" size={24} color={COLORS.primary} />
-            <View style={{ flex: 1, marginLeft: 15 }}>
+            <View style={{flex: 1}}>
               <Text style={styles.aboutTitle}>Sobre o PointDV</Text>
-              <Text style={styles.aboutText}>
-                Descubra eventos e promoções locais. Conecte-se com os melhores estabelecimentos da sua cidade.
-              </Text>
-              <Text style={styles.aboutListItem}>• Para consumidores: encontre eventos próximos</Text>
-              <Text style={styles.aboutListItem}>• Para lojistas: divulgue gratuitamente</Text>
-              <Text style={styles.aboutListItem}>• Versão 1.0.0 - Beta</Text>
+              <Text style={styles.aboutText}>PointDV é seu guia para eventos locais. Conectamos você com o melhor da cidade.</Text>
+              <Text style={styles.aboutListItem}>- Versão 1.0.0</Text>
+              <Text style={styles.aboutListItem}>- Feito em Dois Vizinhos, PR</Text>
             </View>
+            <MaterialCommunityIcons name="map-marker-radius" size={50} color={COLORS.primary} />
           </View>
-
-          {/* Botão de sair da conta. */}
+          
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={20} color={COLORS.red} />
             <Text style={styles.logoutButtonText}>Sair da Conta</Text>
@@ -168,11 +219,14 @@ const PerfilScreen = () => {
   );
 };
 
-/** Folha de estilos da tela de perfil. */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.lightGray },
-
-  // Cabeçalho
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
   header: { backgroundColor: COLORS.primary, padding: 20, paddingTop: 60, alignItems: 'center' },
   backButton: { position: 'absolute', top: 55, left: 15 },
   avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
@@ -180,33 +234,23 @@ const styles = StyleSheet.create({
   userTagConsumer: { backgroundColor: COLORS.white, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 12, marginTop: 8 },
   userTagLojista: { backgroundColor: '#FFD700', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 12, marginTop: 8 },
   userTagText: { color: COLORS.dark, fontWeight: 'bold', fontSize: 12 },
-
-  // Conteúdo
   content: { padding: 15, paddingBottom: 30 },
-
-  // Cartão de informações
   infoCard: { backgroundColor: COLORS.white, borderRadius: 8, padding: 15, marginTop: -30, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2 },
   infoItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   infoTextContainer: { marginLeft: 15 },
   infoTitle: { color: COLORS.gray, fontSize: 12 },
   infoValue: { color: COLORS.dark, fontSize: 16, fontWeight: '500' },
   divider: { height: 1, backgroundColor: COLORS.lightGray, marginVertical: 5 },
-
-  // Lista de ações
   actionList: { marginTop: 20, backgroundColor: COLORS.white, borderRadius: 8, overflow: 'hidden' },
   listItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray },
   listItemIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.lightGray, justifyContent: 'center', alignItems: 'center' },
   listItemTextContainer: { flex: 1, marginLeft: 15 },
   listItemTitle: { fontSize: 16, fontWeight: '500' },
   listItemSubtitle: { color: COLORS.gray, fontSize: 12, marginTop: 2 },
-
-  // Seção "Sobre"
-  aboutSection: { flexDirection: 'row', marginTop: 20, backgroundColor: COLORS.white, borderRadius: 8, padding: 15 },
+  aboutSection: { flexDirection: 'row', marginTop: 20, backgroundColor: COLORS.white, borderRadius: 8, padding: 15, alignItems: 'center' },
   aboutTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
   aboutText: { color: COLORS.gray, marginBottom: 10, lineHeight: 20 },
   aboutListItem: { color: COLORS.gray, fontSize: 12, marginBottom: 5 },
-
-  // Botão de logout
   logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 20, backgroundColor: COLORS.white, borderRadius: 8, padding: 15, borderWidth: 1, borderColor: COLORS.red },
   logoutButtonText: { color: COLORS.red, fontWeight: 'bold', marginLeft: 10 },
 });

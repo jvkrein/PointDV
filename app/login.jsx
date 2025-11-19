@@ -2,14 +2,12 @@
 
 /**
  * Tela inicial da aplicação, responsável pelo login do usuário.
- * Apresenta um formulário de login e opções de acesso rápido para 'Consumidor' e 'Lojista'.
- * Esta tela utiliza um layout imersivo, com o cabeçalho se estendendo por baixo da barra de status.
  */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router'; 
 import { StatusBar } from 'expo-status-bar';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react'; 
 import {
   ScrollView,
   StyleSheet,
@@ -17,11 +15,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView, 
+  Platform 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EventsContext } from './contexts/EventsContext';
+import { EventsContext } from '../contexts/EventsContext';
+import { auth, db } from '../firebaseConfig'; 
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore'; 
 
-// Paleta de cores padrão da aplicação.
+// Paleta de cores (sem mudanças)
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -29,42 +34,86 @@ const COLORS = {
   gray: '#A0A0A0',
   dark: '#333333',
   link: '#2968B4',
+  danger: '#D9534F', 
 };
 
 const SignInScreen = () => {
-  // Hook para obter as dimensões das áreas seguras do dispositivo (topo e base).
   const insets = useSafeAreaInsets();
-  
-  // Acessa o contexto global para obter a função que define o tipo de usuário.
   const { setUserType } = useContext(EventsContext);
 
-  /**
-   * Função que lida com o processo de login.
-   * @param {'consumidor' | 'lojista'} type - O tipo de usuário que está fazendo o login.
-   */
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null); 
+  const [isLoading, setIsLoading] = useState(false); 
+
   const handleLogin = (type) => {
-    // Define o tipo de usuário no estado global para que o resto do app saiba quem está logado.
-    setUserType(type); 
-    // Navega para a tela principal de abas, substituindo a tela de login na pilha de navegação.
-    router.replace('/(tabs)'); 
+    setUserType(type);
+  };
+
+  const handleEmailLogin = async () => {
+    setError(null);
+    if (!email.trim() || !password.trim()) {
+      setError('Por favor, preencha o e-mail e a senha.');
+      return; 
+    }
+    setIsLoading(true);
+
+    try {
+      // 1. Fazer o login no Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      // console.log('Usuário logado:', user.uid); // Comentado para limpar
+      
+      // 2. BUSCAR O TIPO DE CONTA NO FIRESTORE
+      const userDocRef = doc(db, 'usuarios', user.uid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        const userAccountType = userData.tipoConta;
+        
+        handleLogin(userAccountType);
+        setIsLoading(false); 
+        
+      } else {
+        // console.error('Erro: Doc não encontrado'); // Removido
+        setError('Erro ao carregar dados do seu perfil.');
+        setIsLoading(false);
+      }
+
+    } catch (firebaseError) {
+      // --- AQUI ESTAVA O CONSOLE.ERROR ---
+      // Removido para não aparecer erro vermelho no terminal.
+      
+      if (firebaseError.code === 'auth/invalid-credential' || 
+          firebaseError.code === 'auth/user-not-found' || 
+          firebaseError.code === 'auth/wrong-password') {
+        setError('E-mail ou senha inválidos.');
+      } else if (firebaseError.code === 'auth/invalid-email') {
+        setError('O formato do e-mail é inválido.');
+      } else if (firebaseError.code === 'auth/network-request-failed') {
+        setError('Verifique sua conexão com a internet.');
+      } else {
+        setError('Ocorreu um erro. Tente novamente.');
+      }
+      setIsLoading(false); 
+    }
   };
 
   return (
-    // View principal que ocupa toda a tela.
-    <View style={styles.safeArea}>
-      {/* Configura a barra de status para ter ícones claros e ser translúcida. */}
+    <KeyboardAvoidingView 
+      style={styles.safeArea}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <StatusBar style="light" translucent />
       
       <ScrollView
-        // O `contentContainerStyle` aplica espaçamento dinâmico na base da lista,
-        // garantindo que o conteúdo não fique escondido atrás da barra de navegação do celular.
         contentContainerStyle={[
           styles.container,
           { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 },
         ]}
+        keyboardShouldPersistTaps="handled" 
       >
-        {/* Cabeçalho azul com layout imersivo. */}
-        {/* O `paddingTop` é calculado dinamicamente para compensar a altura da barra de status. */}
         <View style={[styles.header, { paddingTop: insets.top + 40 }]}>
           <MaterialCommunityIcons name="map-marker-outline" size={30} color={COLORS.white} />
           <Text style={styles.logoText}>PointDV</Text>
@@ -95,42 +144,61 @@ const SignInScreen = () => {
           </View>
         </View>
 
-        {/* Formulário de login branco. */}
         <View style={styles.formContainer}>
           <MaterialCommunityIcons name="star-circle-outline" size={40} color={COLORS.primary} />
           <Text style={styles.welcomeTitle}>Bem-vindo de volta!</Text>
           <Text style={styles.welcomeSubtitle}>Entre para descobrir eventos incríveis</Text>
           
-          <Text style={styles.quickAccessText}>Acesso rápido para teste:</Text>
-          {/* Botões de acesso rápido que definem o tipo de usuário e navegam para a home. */}
-          <View style={styles.quickAccessButtons}>
-            <TouchableOpacity style={styles.quickAccessButton} onPress={() => handleLogin('consumidor')}>
-              <MaterialCommunityIcons name="account-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.quickAccessButtonText}>Consumidor</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAccessButton} onPress={() => handleLogin('lojista')}>
-              <MaterialCommunityIcons name="storefront-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.quickAccessButtonText}>Lojista</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.separatorText}>ou entre com seus dados</Text>
+          <Text style={styles.separatorText}>Entre com seus dados</Text>
+          
           <View style={styles.inputContainer}>
             <MaterialCommunityIcons name="email-outline" size={20} color={COLORS.gray} style={styles.inputIcon} />
-            <TextInput placeholder="seu@email.com" style={styles.input} keyboardType="email-address" placeholderTextColor={COLORS.gray} />
+            <TextInput 
+              placeholder="seu@email.com" 
+              style={styles.input} 
+              keyboardType="email-address" 
+              placeholderTextColor={COLORS.gray}
+              value={email}
+              onChangeText={setEmail} 
+              autoCapitalize="none"
+              editable={!isLoading} 
+            />
           </View>
           <View style={styles.inputContainer}>
             <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.gray} style={styles.inputIcon} />
-            <TextInput placeholder="Sua senha" style={styles.input} secureTextEntry placeholderTextColor={COLORS.gray} />
-            <TouchableOpacity><Text style={styles.forgotPasswordText}>Esqueceu?</Text></TouchableOpacity>
+            <TextInput 
+              placeholder="Sua senha" 
+              style={styles.input} 
+              secureTextEntry 
+              placeholderTextColor={COLORS.gray}
+              value={password}
+              onChangeText={setPassword} 
+              editable={!isLoading}
+            />
+            
+            <Link href="/resetar-senha" asChild>
+              <TouchableOpacity>
+                <Text style={styles.forgotPasswordText}>Esqueceu?</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
 
-          {/* Botão principal de "Entrar", que por padrão loga como consumidor. */}
-          <TouchableOpacity style={styles.signInButton} onPress={() => handleLogin('consumidor')}>
-            <Text style={styles.signInButtonText}>Entrar</Text>
+          {error && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
+
+          <TouchableOpacity 
+            style={[styles.signInButton, { opacity: isLoading ? 0.7 : 1.0 }]} 
+            onPress={handleEmailLogin}
+            disabled={isLoading} 
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.signInButtonText}>Entrar</Text>
+            )}
           </TouchableOpacity>
 
-          {/* Link para a tela de cadastro. */}
           <Link href="/signup" asChild>
             <TouchableOpacity>
               <Text style={styles.footerText}>
@@ -141,11 +209,10 @@ const SignInScreen = () => {
           <Text style={styles.termsText}>Ao entrar, você concorda com nossos Termos de Uso</Text>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
-// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.lightGray },
   container: { flexGrow: 1 },
@@ -161,16 +228,27 @@ const styles = StyleSheet.create({
   formContainer: { backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 30, marginTop: -30, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center' },
   welcomeTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.dark, marginTop: 10 },
   welcomeSubtitle: { fontSize: 14, color: COLORS.gray, marginTop: 5, marginBottom: 20 },
-  quickAccessText: { color: COLORS.gray, marginBottom: 10, fontSize: 12 },
-  quickAccessButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
-  quickAccessButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.lightGray, borderRadius: 8, paddingVertical: 12, width: '48%' },
-  quickAccessButtonText: { marginLeft: 8, color: COLORS.primary, fontWeight: 'bold' },
   separatorText: { color: COLORS.gray, marginBottom: 20 },
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightGray, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, width: '100%' },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, height: 50, color: COLORS.dark },
   forgotPasswordText: { color: COLORS.link, fontWeight: 'bold', fontSize: 12 },
-  signInButton: { backgroundColor: COLORS.primary, width: '100%', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: 'center',
+    fontWeight: '600',
+    width: '100%', 
+  },
+  signInButton: { 
+    backgroundColor: COLORS.primary, 
+    width: '100%', 
+    padding: 15, 
+    borderRadius: 8, 
+    alignItems: 'center',
+    marginTop: 10, 
+  },
   signInButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
   footerText: { marginTop: 20, color: COLORS.gray },
   linkText: { color: COLORS.link, fontWeight: 'bold' },

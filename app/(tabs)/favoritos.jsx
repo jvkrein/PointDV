@@ -2,15 +2,14 @@
 
 /**
  * Tela que exibe a lista de eventos favoritados pelo usuário.
- * Ela lê o estado global de favoritos e renderiza uma de duas visualizações:
- * 1. Um estado de "lista vazia" se nenhum evento foi favoritado.
- * 2. Uma lista com os cards dos eventos salvos.
  */
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
+// 1. CORREÇÃO: Importar da biblioteca CERTA
+import { useIsFocused } from '@react-navigation/native'; 
 import { StatusBar } from 'expo-status-bar';
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import {
   Image,
   ScrollView,
@@ -18,11 +17,15 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  RefreshControl // Importar RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EventsContext } from '../contexts/EventsContext';
+import { EventsContext } from '../../contexts/EventsContext';
+import { db } from '../../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore'; 
 
-// Paleta de cores padrão da aplicação.
+// Paleta de cores
 const COLORS = {
   primary: '#4A90E2',
   white: '#FFFFFF',
@@ -30,43 +33,49 @@ const COLORS = {
   dark: '#333333',
   lightGray: '#F0F2F5',
 };
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549488344-cbb6c34cf08b?w=500';
 
-// Componente para a tela vazia, exibido quando não há favoritos.
+// Componente para a tela vazia
 const EmptyFavorites = () => (
   <View style={styles.emptyContainer}>
     <MaterialCommunityIcons name="heart-outline" size={80} color={COLORS.gray} />
-    <Text style={styles.emptyTitle}>Nenhum favorito ainda</Text>
-    <Text style={styles.emptySubtitle}>
-      Salve eventos que você gostaria de participar para acessá-los rapidamente aqui
-    </Text>
+    <Text style={styles.emptyTitle}>Nenhum favorito salvo</Text>
+    <Text style={styles.emptySubtitle}>Clique no coração em um evento para salvá-lo aqui.</Text>
     <Link href="/(tabs)/" asChild>
       <TouchableOpacity style={styles.button}>
         <MaterialCommunityIcons name="compass-outline" size={20} color={COLORS.white} />
-        <Text style={styles.buttonText}>Descobrir Eventos</Text>
+        <Text style={styles.buttonText}>Explorar Eventos</Text>
       </TouchableOpacity>
     </Link>
   </View>
 );
 
-// Componente para o card de um evento favoritado.
-// OBS: Atualmente, este card não é dinâmico, pois a tela de detalhes não passa o ID do evento para ele.
-// Para a entrega, ele simula a aparência de um evento favoritado.
-const FavoriteEventCard = () => (
-    <Link href="/detalhes-evento" asChild>
+/**
+ * Componente de Card
+ */
+const FavoriteEventCard = ({ event }) => (
+    <Link 
+      href={{
+        pathname: "/detalhes-evento",
+        params: { eventData: JSON.stringify(event) }
+      }} 
+      asChild
+    >
         <TouchableOpacity style={styles.card}>
             <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500' }}
+                source={{ uri: event.imageUrl || PLACEHOLDER_IMAGE }}
                 style={styles.cardImage}
             />
             <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Jantar Romântico</Text>
-                <Text style={styles.cardLocation}>Restaurante La Bella</Text>
-                <Text style={styles.cardDescription} numberOfLines={2}>Menu especial para casais com entrada, prato principal e sobremesa.</Text>
+                <Text style={styles.cardTitle}>{event.titulo}</Text>
+                <Text style={styles.cardLocation}>{event.endereco}</Text>
+                <Text style={styles.cardDescription} numberOfLines={2}>{event.descricao}</Text>
                 <View style={styles.cardFooter}>
                     <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={COLORS.gray} />
-                    <Text style={styles.cardDate}>13 out.</Text>
+                    {/* Exibe data de início ou data antiga */}
+                    <Text style={styles.cardDate}>{event.dataInicio || event.data}</Text>
                     <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.gray} style={{marginLeft: 15}} />
-                    <Text style={styles.cardDate}>19:30</Text>
+                    <Text style={styles.cardDate}>{event.horaInicio || event.horario}</Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -74,33 +83,90 @@ const FavoriteEventCard = () => (
 );
 
 const FavoritosScreen = () => {
-  // Lê a lista de IDs de eventos favoritados do "cérebro" da aplicação.
   const { favoritedEvents } = useContext(EventsContext);
-  const favoritesCount = favoritedEvents.length;
+  const [favoriteEventsData, setFavoriteEventsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Hook de foco
+  const isFocused = useIsFocused();
+
+  // Função de busca
+  const fetchFavoriteEvents = async () => {
+    if (favoritedEvents.length === 0) {
+        setFavoriteEventsData([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+    }
+    try {
+        const promises = favoritedEvents.map(eventId => {
+          const docRef = doc(db, 'eventos', eventId);
+          return getDoc(docRef);
+        });
+
+        const eventDocs = await Promise.all(promises);
+
+        const eventsData = eventDocs
+          .filter(docSnap => docSnap.exists()) 
+          .map(docSnap => ({ id: docSnap.id, ...docSnap.data() })); 
+
+        setFavoriteEventsData(eventsData);
+        
+    } catch (error) {
+        console.error("Erro ao buscar eventos favoritos:", error);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  // Refresh manual (arrastar pra baixo)
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchFavoriteEvents();
+  };
+
+  // Atualiza quando ganha foco ou a lista muda
+  useEffect(() => {
+      if (isFocused) {
+        fetchFavoriteEvents();
+      }
+  }, [favoritedEvents, isFocused]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Favoritos</Text>
-        <Text style={styles.headerSubtitle}>{favoritesCount} {favoritesCount === 1 ? 'evento salvo' : 'eventos salvos'}</Text>
+        <Text style={styles.headerSubtitle}>{favoriteEventsData.length} {favoriteEventsData.length === 1 ? 'evento salvo' : 'eventos salvos'}</Text>
       </View>
 
-      {/* Renderização Condicional: Se a contagem de favoritos for zero, mostra a tela vazia.
-          Caso contrário, renderiza a lista de eventos. */}
-      {favoritesCount === 0 ? (
-        <EmptyFavorites />
+      {loading && !refreshing ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.emptyTitle}>Buscando seus favoritos...</Text>
+        </View>
+      ) : favoriteEventsData.length === 0 ? (
+        <ScrollView 
+            contentContainerStyle={{flex: 1}}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        >
+            <EmptyFavorites />
+        </ScrollView>
       ) : (
-        <ScrollView style={styles.listContainer}>
-          {/* Para este protótipo, renderiza o card fixo se a lista não estiver vazia. */}
-          <FavoriteEventCard />
+        <ScrollView 
+            style={styles.listContainer}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        >
+          {favoriteEventsData.map(event => (
+            <FavoriteEventCard key={event.id} event={event} />
+          ))}
         </ScrollView>
       )}
     </SafeAreaView>
   );
 };
 
-// Folha de estilos do componente.
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   header: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
